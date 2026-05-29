@@ -2,6 +2,9 @@ name: 编译磊科 N30Pro 固件
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - main
     inputs:
       ssh:
         description: '是否开启 SSH 调试 (true/false)'
