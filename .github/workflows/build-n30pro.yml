@@ -94,6 +94,7 @@ jobs:
       - name: 加载自定义配置
         working-directory: /workdir/openwrt
         run: |
+          rm -rf package/mtk/applications/5g-modem
           cp $GITHUB_WORKSPACE/$CONFIG_FILE .config
           echo "# CONFIG_PACKAGE_kmod-qmi_wwan_f is not set" >> .config
           echo "# CONFIG_PACKAGE_kmod-qmi_wwan_q is not set" >> .config
