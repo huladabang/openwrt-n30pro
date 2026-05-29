@@ -95,6 +95,11 @@ jobs:
         working-directory: /workdir/openwrt
         run: |
           cp $GITHUB_WORKSPACE/$CONFIG_FILE .config
+          echo "# CONFIG_PACKAGE_kmod-qmi_wwan_f is not set" >> .config
+          echo "# CONFIG_PACKAGE_kmod-qmi_wwan_q is not set" >> .config
+          echo "# CONFIG_PACKAGE_kmod-qmi_wwan_m is not set" >> .config
+          echo "# CONFIG_PACKAGE_kmod-usb-net-qmi-wwan-quectel is not set" >> .config
+          echo "# CONFIG_PACKAGE_kmod-usb-net-qmi-wwan-fibocom is not set" >> .config
           make defconfig
 
       - name: SSH 调试 (可选)
