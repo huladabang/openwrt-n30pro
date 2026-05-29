@@ -1,0 +1,245 @@
+name: 编译磊科 N30Pro 固件
+
+on:
+  workflow_dispatch:
+    inputs:
+      ssh:
+        description: '是否开启 SSH 调试 (true/false)'
+        required: false
+        default: 'false'
+
+env:
+  REPO_URL: https://github.com/padavanonly/immortalwrt-mt798x-6.6
+  REPO_BRANCH: openwrt-24.10-6.6
+  CONFIG_FILE: defconfig/n30pro.config
+  TZ: Asia/Shanghai
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+
+    steps:
+      - name: 检出本仓库
+        uses: actions/checkout@v4
+
+      - name: 初始化编译环境
+        env:
+          DEBIAN_FRONTEND: noninteractive
+        run: |
+          sudo rm -rf /etc/apt/sources.list.d/* /usr/share/dotnet /usr/local/lib/android /opt/ghc
+          sudo apt-get update -y
+          sudo apt-get full-upgrade -y
+          sudo apt-get install -y \
+            ack antlr3 asciidoc autoconf automake autopoint binutils bison build-essential \
+            bzip2 ccache clang cmake cpio curl device-tree-compiler ecj fastjar flex gawk \
+            gettext gcc-multilib g++-multilib git gnutls-dev gperf haveged help2man intltool \
+            lib32gcc-s1 libc6-dev-i386 libelf-dev libglib2.0-dev libgmp3-dev libltdl-dev \
+            libmpc-dev libmpfr-dev libncurses-dev libpython3-dev libreadline-dev libssl-dev \
+            libtool libyaml-dev libz-dev lld llvm lrzsz mkisofs msmtp ninja-build \
+            p7zip p7zip-full patch pkgconf python3 python3-pip python3-ply python3-docutils \
+            python3-pyelftools qemu-utils re2c rsync scons squashfs-tools subversion swig \
+            texinfo uglifyjs upx-ucl unzip vim wget xmlto xxd zlib1g-dev zstd
+          sudo timedatectl set-timezone "$TZ"
+          sudo mkdir -p /workdir
+          sudo chown $USER:$GROUPS /workdir
+
+      - name: 克隆源码
+        working-directory: /workdir
+        run: |
+          df -hT $PWD
+          git clone -b $REPO_BRANCH --single-branch --filter=blob:none $REPO_URL openwrt
+          ln -sf /workdir/openwrt $GITHUB_WORKSPACE/openwrt
+
+      # ============================================================
+      # 注入 N30Pro 设备支持文件
+      # ============================================================
+      - name: 注入 N30Pro DTS 文件
+        run: |
+          echo ">>> 复制 DTS 文件到源码..."
+          cp $GITHUB_WORKSPACE/dts/mt7981b-netcore-n30pro.dts \
+             /workdir/openwrt/target/linux/mediatek/dts/mt7981b-netcore-n30pro.dts
+          cp $GITHUB_WORKSPACE/dts/mt7981b-netis-common.dtsi \
+             /workdir/openwrt/target/linux/mediatek/dts/mt7981b-netis-common.dtsi
+          echo ">>> DTS 文件已注入"
+          ls -la /workdir/openwrt/target/linux/mediatek/dts/ | grep n30pro
+          ls -la /workdir/openwrt/target/linux/mediatek/dts/ | grep netis
+
+      - name: 注入 N30Pro 设备定义到 filogic.mk
+        run: |
+          FILOGIC_MK="/workdir/openwrt/target/linux/mediatek/image/filogic.mk"
+          echo ">>> 向 filogic.mk 追加 N30Pro 设备定义..."
+
+          # 检查是否已存在 (避免重复添加)
+          if grep -q "netcore_n30pro" "$FILOGIC_MK"; then
+            echo ">>> N30Pro 定义已存在，跳过"
+          else
+            cat >> "$FILOGIC_MK" << 'EOF'
+
+# ======== Netcore N30PRO (MT7981B + NAND) ========
+define Device/netcore_n30pro
+  DEVICE_VENDOR := Netcore
+  DEVICE_MODEL := N30PRO
+  DEVICE_ALT0_VENDOR := netis
+  DEVICE_ALT0_MODEL := NX35U
+  DEVICE_DTS := mt7981b-netcore-n30pro
+  DEVICE_DTS_DIR := ../dts
+  DEVICE_DTC_FLAGS := --pad 4096
+  DEVICE_DTS_LOADADDR := 0x43f00000
+  DEVICE_PACKAGES := kmod-mt7915e kmod-mt7981-firmware mt7981-wo-firmware kmod-usb3 kmod-usb-ledtrig-usbport
+  KERNEL_LOADADDR := 0x44000000
+  KERNEL := kernel-bin | gzip
+  KERNEL_INITRAMFS := kernel-bin | lzma | fit lzma $$(KDIR)/image-$$(firstword $$(DEVICE_DTS)).dtb with-initrd | pad-to 64k
+  KERNEL_INITRAMFS_SUFFIX := .itb
+  KERNEL_IN_UBI := 1
+  UBOOTENV_IN_UBI := 1
+  IMAGES := sysupgrade.itb
+  IMAGE_SIZE := 117248k
+  IMAGE/sysupgrade.itb := append-kernel | fit gzip $$(KDIR)/image-$$(firstword $$(DEVICE_DTS)).dtb external-with-rootfs | pad-rootfs | append-metadata
+  ARTIFACTS := spim-nand-preloader.bin spim-nand-bl31-uboot.fip
+  ARTIFACT/spim-nand-preloader.bin	:= mt7981-bl2 spim-nand-ddr3
+  ARTIFACT/spim-nand-bl31-uboot.fip	:= mt7981-bl31-uboot netcore_n30pro
+endef
+TARGET_DEVICES += netcore_n30pro
+EOF
+            echo ">>> N30Pro 设备定义已追加到 filogic.mk"
+          fi
+
+          # 验证
+          grep -A 5 "Device/netcore_n30pro" "$FILOGIC_MK" | head -10
+
+      # ============================================================
+      # 添加 Feeds 和插件
+      # ============================================================
+      - name: 添加自定义 Feeds
+        working-directory: /workdir/openwrt
+        run: |
+          # iStore 商店
+          echo "src-git istore https://github.com/linkease/istore;main" >> feeds.conf.default
+          echo "src-git istore_app https://github.com/linkease/istore-ui;main" >> feeds.conf.default
+          echo ">>> Feeds 配置完成"
+          cat feeds.conf.default
+
+      - name: 克隆 OpenClash
+        working-directory: /workdir/openwrt
+        run: |
+          mkdir -p package/custom
+          git clone --depth=1 https://github.com/vernesong/OpenClash.git package/custom/openclash
+          echo ">>> OpenClash 克隆完成"
+
+      - name: 更新并安装 Feeds
+        working-directory: /workdir/openwrt
+        run: |
+          ./scripts/feeds update -a
+          ./scripts/feeds install -a
+          ./scripts/feeds install -a -p istore
+          ./scripts/feeds install -a -p istore_app
+          echo ">>> Feeds 安装完成"
+
+      # ============================================================
+      # 加载配置
+      # ============================================================
+      - name: 加载自定义配置
+        working-directory: /workdir/openwrt
+        run: |
+          cp $GITHUB_WORKSPACE/$CONFIG_FILE .config
+          make defconfig
+          echo ">>> 配置加载完成，目标设备："
+          grep "DEVICE_netcore_n30pro" .config
+
+      - name: SSH 调试 (可选)
+        uses: mxschmitt/action-tmate@v3
+        if: github.event.inputs.ssh == 'true'
+        with:
+          limit-access-to-actor: true
+
+      - name: 下载依赖包
+        working-directory: /workdir/openwrt
+        run: |
+          make download -j8
+          find dl -size -1024c -exec ls -l {} \;
+          find dl -size -1024c -exec rm -f {} \;
+
+      # ============================================================
+      # 开始编译
+      # ============================================================
+      - name: 开始编译
+        id: compile
+        working-directory: /workdir/openwrt
+        run: |
+          echo -e "$(nproc) 线程编译"
+          make -j$(nproc) || make -j1 || make -j1 V=s
+          echo "status=success" >> $GITHUB_OUTPUT
+          echo "FILE_DATE=$(date +"%Y%m%d%H%M")" >> $GITHUB_ENV
+
+      - name: 检查磁盘空间
+        if: (!cancelled())
+        run: df -hT
+
+      # ============================================================
+      # 上传固件
+      # ============================================================
+      - name: 整理固件文件
+        if: steps.compile.outputs.status == 'success'
+        run: |
+          cd /workdir/openwrt/bin/targets/mediatek/filogic/
+          echo ">>> 编译产出文件："
+          ls -la
+          # 仅保留 N30Pro 相关文件
+          mkdir -p /tmp/n30pro-firmware
+          cp *netcore_n30pro* /tmp/n30pro-firmware/ 2>/dev/null || true
+          ls -la /tmp/n30pro-firmware/
+
+      - name: 上传固件到 Artifacts
+        uses: actions/upload-artifact@v4
+        if: steps.compile.outputs.status == 'success'
+        with:
+          name: 磊科N30Pro固件_${{ env.FILE_DATE }}
+          path: /workdir/openwrt/bin/targets/mediatek/filogic/*netcore_n30pro*
+          retention-days: 14
+
+      - name: 创建 Release
+        uses: ncipollo/release-action@v1
+        if: steps.compile.outputs.status == 'success'
+        with:
+          tag: N30Pro-${{ env.FILE_DATE }}
+          name: 磊科 N30Pro 固件 ${{ env.FILE_DATE }}
+          body: |
+            ## 磊科 N30Pro ImmortalWrt 固件
+
+            ### 固件信息
+            - **源码**: padavanonly/immortalwrt-mt798x-6.6
+            - **分支**: openwrt-24.10-6.6
+            - **编译时间**: ${{ env.FILE_DATE }}
+
+            ### 硬件配置
+            - CPU: MT7981B 双核 1.3GHz
+            - RAM: 512MB
+            - Flash: 128MB NAND
+            - 交换机: MT7531AE
+            - 无线: MT7976CN (2.4GHz + 5GHz)
+            - 网口: 1x WAN + 4x LAN
+            - USB: 3.0 x1
+
+            ### 内置插件
+            - ✅ OpenClash (代理工具)
+            - ✅ iStore (应用商店)
+            - ✅ USB 上网 / 网络共享 (4G/5G 网卡)
+            - ✅ ttyd (Web 终端)
+            - ✅ 文件浏览器
+            - ✅ MTK 硬件加速 (TurboACC)
+            - ✅ MTWIFI 无线配置
+
+            ### 刷机说明
+            > ⚠️ 需要先刷入 hanwckf 大佬编译的 RAX3000M NAND 版 uboot
+            
+            1. 通过 uboot Web 界面上传 `sysupgrade.itb` 文件
+            2. 等待重启完成
+            3. 默认 IP: 192.168.1.1 / 无密码
+
+            ### 文件说明
+            - `*sysupgrade.itb` — 升级固件 (通过 uboot 或 LuCI 刷入)
+            - `*spim-nand-preloader.bin` — BL2 预加载器 (通常不需要)
+            - `*spim-nand-bl31-uboot.fip` — FIP uboot 文件 (通常不需要)
+          artifacts: /workdir/openwrt/bin/targets/mediatek/filogic/*netcore_n30pro*
+          allowUpdates: true
+          token: ${{ secrets.GITHUB_TOKEN }}
