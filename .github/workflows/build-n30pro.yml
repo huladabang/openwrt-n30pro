@@ -181,3 +181,4 @@ MKEOF
           artifacts: /workdir/openwrt/bin/targets/mediatek/filogic/*netcore_n30pro*
           allowUpdates: true
           token: ${{ secrets.GITHUB_TOKEN }}
+ 
