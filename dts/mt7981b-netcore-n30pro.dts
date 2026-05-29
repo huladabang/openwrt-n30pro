@@ -11,7 +11,7 @@
 
 / {
 	model = "Netcore N30PRO";
-	compatible = "netcore,n30pro", "mediatek,mt7981";
+	compatible = "netcore,n30pro", "cmcc,rax3000m", "mediatek,mt7981";
 
 	aliases {
 		label-mac-device = &gmac0;
