@@ -108,21 +108,17 @@ jobs:
       # ============================================================
       # 添加 Feeds 和插件
       # ============================================================
-      - name: 添加自定义 Feeds
-        working-directory: /workdir/openwrt
-        run: |
-          # iStore 商店
-          echo "src-git istore https://github.com/linkease/istore;main" >> feeds.conf.default
-          echo "src-git istore_app https://github.com/linkease/istore-ui;main" >> feeds.conf.default
-          echo ">>> Feeds 配置完成"
-          cat feeds.conf.default
 
-      - name: 克隆 OpenClash
+
+
+
+
+      - name: 删除报错的 5G 模块
         working-directory: /workdir/openwrt
         run: |
-          mkdir -p package/custom
-          git clone --depth=1 https://github.com/vernesong/OpenClash.git package/custom/openclash
-          echo ">>> OpenClash 克隆完成"
+          echo ">>> 强行删除 5g-modem 文件夹，防止编译错误"
+          rm -rf package/mtk/applications/5g-modem
+          rm -rf package/mtk/applications/quectel_MHI
 
       - name: 更新并安装 Feeds
         working-directory: /workdir/openwrt
@@ -131,9 +127,7 @@ jobs:
           # 临时解决 Rust 编译依赖预编译 llvm 可能带来的失败问题
           sed -i 's/ci-llvm=true/ci-llvm=false/g' feeds/packages/lang/rust/Makefile || true
           ./scripts/feeds install -a
-          ./scripts/feeds install -a -p istore
-          ./scripts/feeds install -a -p istore_app
-          echo ">>> Feeds 安装完成"
+                              echo ">>> Feeds 安装完成"
 
       # ============================================================
       # 加载配置
