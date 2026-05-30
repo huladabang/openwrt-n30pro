@@ -1,6 +1,9 @@
 name: 编译磊科 N30Pro 固件 (Official OpenWrt)
 
 on:
+  push:
+    branches:
+      - main
   workflow_dispatch:
     inputs:
       ssh:
