@@ -1,4 +1,4 @@
-name: 编译磊科 N30Pro 固件
+name: 编译磊科 N30Pro 固件 (Official OpenWrt)
 
 on:
   workflow_dispatch:
@@ -9,8 +9,8 @@ on:
         default: 'false'
 
 env:
-  REPO_URL: https://github.com/padavanonly/immortalwrt-mt798x-6.6
-  REPO_BRANCH: openwrt-24.10-6.6
+  REPO_URL: https://github.com/openwrt/openwrt
+  REPO_BRANCH: main
   CONFIG_FILE: defconfig/n30pro.config
   TZ: Asia/Shanghai
 
