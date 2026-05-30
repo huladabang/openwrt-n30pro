@@ -73,34 +73,7 @@ jobs:
           if grep -q "netcore_n30pro" "$FILOGIC_MK"; then
             echo ">>> N30Pro 定义已存在，跳过"
           else
-            cat >> "$FILOGIC_MK" << 'EOF'
-
-# ======== Netcore N30PRO (MT7981B + NAND) ========
-define Device/netcore_n30pro
-  DEVICE_VENDOR := Netcore
-  DEVICE_MODEL := N30PRO
-  DEVICE_ALT0_VENDOR := netis
-  DEVICE_ALT0_MODEL := NX35U
-  DEVICE_DTS := mt7981b-netcore-n30pro
-  DEVICE_DTS_DIR := ../dts
-  DEVICE_DTC_FLAGS := --pad 4096
-  DEVICE_DTS_LOADADDR := 0x43f00000
-  DEVICE_PACKAGES := kmod-mt7915e kmod-mt7981-firmware mt7981-wo-firmware kmod-usb3 kmod-usb-ledtrig-usbport
-  KERNEL_LOADADDR := 0x44000000
-  KERNEL := kernel-bin | gzip
-  KERNEL_INITRAMFS := kernel-bin | lzma | fit lzma $$(KDIR)/image-$$(firstword $$(DEVICE_DTS)).dtb with-initrd | pad-to 64k
-  KERNEL_INITRAMFS_SUFFIX := .itb
-  KERNEL_IN_UBI := 1
-  UBOOTENV_IN_UBI := 1
-  IMAGES := sysupgrade.itb
-  IMAGE_SIZE := 117248k
-  IMAGE/sysupgrade.itb := append-kernel | fit gzip $$(KDIR)/image-$$(firstword $$(DEVICE_DTS)).dtb external-with-rootfs | pad-rootfs | append-metadata
-  ARTIFACTS := spim-nand-preloader.bin spim-nand-bl31-uboot.fip
-  ARTIFACT/spim-nand-preloader.bin	:= mt7981-bl2 spim-nand-ddr3
-  ARTIFACT/spim-nand-bl31-uboot.fip	:= mt7981-bl31-uboot netcore_n30pro
-endef
-TARGET_DEVICES += netcore_n30pro
-EOF
+            echo "ZGVmaW5lIERldmljZS9uZXRjb3JlX24zMHBybwogIERFVklDRV9WRU5ET1IgOj0gTmV0Y29yZQogIERFVklDRV9NT0RFTCA6PSBOMzBQUk8KICBERVZJQ0VfQUxUMF9WRU5ET1IgOj0gbmV0aXMKICBERVZJQ0VfQUxUMF9NT0RFTCA6PSBOWDM1VQogIERFVklDRV9EVFMgOj0gbXQ3OTgxYi1uZXRjb3JlLW4zMHBybwogIERFVklDRV9EVFNfRElSIDo9IC4uL2R0cwogIERFVklDRV9EVENfRkxBR1MgOj0gLS1wYWQgNDA5NgogIERFVklDRV9EVFNfTE9BREFERFIgOj0gMHg0M2YwMDAwMAogIERFVklDRV9QQUNLQUdFUyA6PSBrbW9kLW10NzkxNWUga21vZC1tdDc5ODEtZmlybXdhcmUgbXQ3OTgxLXdvLWZpcm13YXJlIGttb2QtdXNiMyBrbW9kLXVzYi1sZWR0cmlnLXVzYnBvcnQKICBLRVJORUxfTE9BREFERFIgOj0gMHg0NDAwMDAwMAogIEtFUk5FTCA6PSBrZXJuZWwtYmluIHwgZ3ppcAogIEtFUk5FTF9JTklUUkFNRlMgOj0ga2VybmVsLWJpbiB8IGx6bWEgfCBmaXQgbHptYSAkJChLRElSKS9pbWFnZS0kJChmaXJzdHdvcmQgJCQoREVWSUNFX0RUUykpLmR0YiB3aXRoLWluaXRyZCB8IHBhZC10byA2NGsKICBLRVJORUxfSU5JVFJBTUZTX1NVRkZJWCA6PSAuaXRiCiAgS0VSTkVMX0lOX1VCSSA6PSAxCiAgVUJPT1RFTlZfSU5fVUJJIDo9IDEKICBJTUFHRVMgOj0gc3lzdXBncmFkZS5pdGIKICBJTUFHRV9TSVpFIDo9IDExNzI0OGsKICBJTUFHRS9zeXN1cGdyYWRlLml0YiA6PSBhcHBlbmQta2VybmVsIHwgZml0IGd6aXAgJCQoS0RJUikvaW1hZ2UtJCQoZmlyc3R3b3JkICQkKERFVklDRV9EVFMpKS5kdGIgZXh0ZXJuYWwtd2l0aC1yb290ZnMgfCBwYWQtcm9vdGZzIHwgYXBwZW5kLW1ldGFkYXRhCiAgQVJUSUZBQ1RTIDo9IHNwaW0tbmFuZC1wcmVsb2FkZXIuYmluIHNwaW0tbmFuZC1ibDMxLXVib290LmZpcAogIEFSVElGQUNUL3NwaW0tbmFuZC1wcmVsb2FkZXIuYmluCTo9IG10Nzk4MS1ibDIgc3BpbS1uYW5kLWRkcjMKICBBUlRJRkFDVC9zcGltLW5hbmQtYmwzMS11Ym9vdC5maXAJOj0gbXQ3OTgxLWJsMzEtdWJvb3QgbmV0Y29yZV9uMzBwcm8KZW5kZWYKVEFSR0VUX0RFVklDRVMgKz0gbmV0Y29yZV9uMzBwcm8K" | base64 -d >> "$FILOGIC_MK"
             echo ">>> N30Pro 设备定义已追加到 filogic.mk"
           fi
 
